@@ -1,4 +1,7 @@
-from client_info import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
+from client_info import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, TH_CLIENT_ID, TH_CLIENT_SECRET
+
+CLIENT_ID = TH_CLIENT_ID
+CLIENT_SECRET = TH_CLIENT_SECRET
 
 import tekore as tk
 from rich.console import Console
@@ -20,8 +23,16 @@ def fetch_token():
         tk.config_to_file(file, conf + (token.refresh_token,))
     return token
 
-def search_songs(term):
-    return
+def search_songs(term, search_lim=50, max_search=1_000, max_followers=10_000, max_results=33):
+    results = []
+    offset_count = 0
+    while offset_count < max_search:
+        obj, = spotify.search(term, types=('track',), limit=search_lim, offset=offset_count)
+        results.extend([ob for ob in obj.items])
+        offset_count += search_lim
+        if len(results) >= max_results:
+            offset_count = 9e9
+    return results
 
 def search_artists(term, search_lim=50, max_search=1_000, max_followers=10_000, max_results=33):
     results = []
@@ -34,7 +45,7 @@ def search_artists(term, search_lim=50, max_search=1_000, max_followers=10_000, 
             offset_count = 9e9
     return results
 
-def show_indu(artist):
+def show_artist_tracks(artist):
     tracks = spotify.artist_top_tracks(artist.id, 'from_token')
     if tracks:
         track_title = f"Top songs of {artist.name}!" 
@@ -51,7 +62,7 @@ def show_indu(artist):
         while not track_exit:
             track_sel = tracks_menu.show()
             if track_sel != (len(track_items)-1):
-                player(tracks[track_sel])
+                player(tracks[track_sel], show_controls=True)
             else:
                 track_exit = True
     else:
@@ -59,16 +70,21 @@ def show_indu(artist):
         track_exit = True
 
 
-def _result_formatter(results, offset=3):
+def _result_formatter(results, type, offset=3):
     n = max([len(a.name) for a in results]) + offset
-    m = max([len(str(a.followers.total)) for a in results]) +1
-    formatted_list = [f"{result.name}{' '*(n-len(result.name))} Followers:{' '*(m-len(str(result.followers.total)))}{result.followers.total}  Genres: {[g for g in result.genres]}" for result in results]
+
+    if type == 'artist':
+        m = max([len(str(a.followers.total)) for a in results]) +1
+        formatted_list = [f"{result.name}{' '*(n-len(result.name))} Followers:{' '*(m-len(str(result.followers.total)))}{result.followers.total}  Genres: {[g for g in result.genres]}" for result in results]
+    elif type =='track':
+        formatted_list = [f"{result.name}{' '*(n-len(result.name))} Artist(s): {[a.name for a in result.artists ]}" for result in results]
+    
     return formatted_list
     
 
-def search_results(results):
+def search_results(results, type):
     results_title = f"Showwing {len(results)} Search Results from the MEUKINATOR3!"
-    result_items = _result_formatter(results)
+    result_items = _result_formatter(results, type=type)
     result_items.append("<- Return")
     result_exit = False
     result_menu = TerminalMenu(
@@ -81,15 +97,19 @@ def search_results(results):
     while not result_exit:
         result_sel = result_menu.show()
         if result_sel != (len(result_items)-1):
-            show_indu(results[result_sel])
+            if type == 'artist':
+                show_artist_tracks(results[result_sel])
+            elif type == 'track':
+                player(results[result_sel], show_controls=True)
         else:
             result_exit = True
 
 def player(song, skip_s=15, show_controls=False):
-    spotify.playback_start_tracks([song.id])
+    if not show_controls:
+        spotify.playback_start_tracks([song.id])
     # console.print(f"Playing: {song.name}")
-    if show_controls:
-        player_options = [f'Fast Forward ({skip_s}sec)',f'Rewind ({skip_s}sec)', '<- Return']
+    elif show_controls:
+        player_options = ["Play Now", "Add To Queue", f'Fast Forward ({skip_s}sec)',f'Rewind ({skip_s}sec)', '<- Return']
         player_exit = False
         player_menu = TerminalMenu(
             menu_entries = player_options,
@@ -101,10 +121,16 @@ def player(song, skip_s=15, show_controls=False):
         while not player_exit:
             player_sel = player_menu.show()
             if player_sel == 0:
+                spotify.playback_start_tracks([song.id])
+                player_exit = True
+            elif player_sel == 1:
+                spotify.playback_queue_add(song.uri)
+                player_exit = True
+            elif player_sel == 2:
                 progress = spotify.playback_currently_playing(tracks_only=True).progress_ms
                 forward_ms = progress+int(skip_s)*1000
                 spotify.playback_start_tracks([song.id], position_ms = forward_ms)
-            elif player_sel == 1:
+            elif player_sel == 3:
                 progress = spotify.playback_currently_playing(tracks_only=True).progress_ms
                 rewind_ms = progress - int(skip_s)*1000
                 if rewind_ms < 0:
@@ -142,10 +168,12 @@ def main():
         if main_sel == 0: #Search based on artist name
             search_term = input("Search for artist name: ")
             artists =  search_artists(search_term)
-            search_results(artists)
+            search_results(artists, type='artist')
 
         elif main_sel == 1: #Search based on song name
-            pass
+            search_term = input("Search for nieuwe pokkoe:")
+            songs = search_songs(search_term)
+            search_results(songs, type='track')
 
         elif main_sel == 2: #Settings menu
             while not edit_menu_back:

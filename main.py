@@ -1,147 +1,128 @@
 from client_info import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
 
-
 import tekore as tk
 from rich.console import Console
 from simple_term_menu import TerminalMenu
-import os
-import time
-import sys
+import os,time,sys
+
+desired_playlist = 'Heren Ver3tig'
+
 
 def fetch_token():
     file = 'tekore.cfg'
     if os.path.isfile(file):
-        # print(f"{file} found!")
         conf = tk.config_from_file(file, return_refresh=True)
         token = tk.refresh_user_token(*conf[:2], conf[3])
     else:
-        print(f"{file} not found, log-in to spotify and paste URL")
+        console.print(f"{file} not found, log-in to spotify and paste URL in commandline", style='bold red')
         conf = (CLIENT_ID,CLIENT_SECRET,REDIRECT_URI)
         token = tk.prompt_for_user_token(*conf, scope=tk.scope.every)
         tk.config_to_file(file, conf + (token.refresh_token,))
     return token
 
+def search_songs(term):
+    return
 
-
-# def artist_search(name, search_lim=5):
-#     print(f"searching for artist {name}")
-#     artists_object, = spotify.search(name, types=('artist',), limit=search_lim)
-
-#     options = [artist.name for artist in artists_object]
-
-#     for artist in artists_object.items:
-#         display_artist(artist, search_top_songs=True)
-#     return
-
-
-
-# def display_artist(artist, search_top_songs):
-#     console.print(f"Artist name: [bold red]{artist.name}[/bold red]")
-
-#     if search_top_songs:
-#         tracks = spotify.artist_top_tracks(artist.id, 'from_token')
-#         for track in tracks:
-#             print(track)
-#             console.print(f"track: [link={track.href}]{track.name}[/link]")
-
-
-#     return
-
-
-def search_artists(term, search_lim=5):
-    obj, = spotify.search(term, types=('artist',), limit=search_lim)
-    return obj
+def search_artists(term, search_lim=50, max_search=1_000, max_followers=10_000, max_results=33):
+    results = []
+    offset_count = 0
+    while offset_count < max_search:
+        obj, = spotify.search(term, types=('artist',), limit=search_lim, offset=offset_count)
+        results.extend([ob for ob in obj.items if (0 < ob.followers.total <= max_followers)])
+        offset_count += search_lim
+        if len(results) >= max_results:
+            offset_count = 9e9
+    return results
 
 def show_indu(artist):
     tracks = spotify.artist_top_tracks(artist.id, 'from_token')
-    track_title = f"Top songs of {artist.name}!" 
-    track_items = [track.name for track in tracks]
-    track_cursor = "> "
-    track_cursor_style = ("fg_red", "bold")
-    track_style = ("bg_red", "fg_yellow")
-    track_exit = False
-
-    tracks_menu = TerminalMenu(
-        menu_entries=track_items,
-        title=track_title,
-        menu_cursor=track_cursor,
-        menu_cursor_style=track_cursor_style,
-        menu_highlight_style=track_style,
-        cycle_cursor=True,
-        clear_screen=True,
-    )
-    
-    while not track_exit:
-        track_sel = tracks_menu.show()
-
-
-        spotify.playback_start_tracks([tracks[track_sel].id])
-        # time.sleep(5)
+    if tracks:
+        track_title = f"Top songs of {artist.name}!" 
+        track_items = [track.name for track in tracks]
+        track_exit = False
+        track_items.append("<- Return")
+        tracks_menu = TerminalMenu(
+            menu_entries=track_items,
+            title=track_title,
+            cycle_cursor=True,
+            clear_screen=False,
+        )
+        
+        while not track_exit:
+            track_sel = tracks_menu.show()
+            if track_sel != (len(track_items)-1):
+                player(tracks[track_sel])
+            else:
+                track_exit = True
+    else:
+        console.print(f"No tracks found for {artist.name}", style='bold red')
         track_exit = True
 
 
+def _result_formatter(results, offset=3):
+    n = max([len(a.name) for a in results]) + offset
+    m = max([len(str(a.followers.total)) for a in results]) +1
+    formatted_list = [f"{result.name}{' '*(n-len(result.name))} Followers:{' '*(m-len(str(result.followers.total)))}{result.followers.total}  Genres: {[g for g in result.genres]}" for result in results]
+    return formatted_list
+    
 
 def search_results(results):
-    results_title = "Search Results from the MEUKINATOR3"
-    result_items = [result.name for result in results.items]
-    result_cursor = "> "
-    result_cursor_style = ("fg_red", "bold")
-    result_style = ("bg_red", "fg_yellow")
+    results_title = f"Showwing {len(results)} Search Results from the MEUKINATOR3!"
+    result_items = _result_formatter(results)
+    result_items.append("<- Return")
     result_exit = False
-
     result_menu = TerminalMenu(
         menu_entries=result_items,
         title=results_title,
-        menu_cursor=result_cursor,
-        menu_cursor_style=result_cursor_style,
-        menu_highlight_style=result_style,
         cycle_cursor=True,
         clear_screen=True,
     )
 
     while not result_exit:
         result_sel = result_menu.show()
-        show_indu(results.items[result_sel])
-        # print(result_sel)
-        # print(results.items[result_sel])
-        # time.sleep(3)
-        result_exit = True
+        if result_sel != (len(result_items)-1):
+            show_indu(results[result_sel])
+        else:
+            result_exit = True
 
+def player(song, skip_s=15, show_controls=False):
+    spotify.playback_start_tracks([song.id])
+    # console.print(f"Playing: {song.name}")
+    if show_controls:
+        player_options = [f'Fast Forward ({skip_s}sec)',f'Rewind ({skip_s}sec)', '<- Return']
+        player_exit = False
+        player_menu = TerminalMenu(
+            menu_entries = player_options,
+            title = f"{song.name}",
+            cycle_cursor=True,
+            clear_screen=True,
+        )
 
-
-
-    # return result_menu
+        while not player_exit:
+            player_sel = player_menu.show()
+            if player_sel == 0:
+                progress = spotify.playback_currently_playing(tracks_only=True).progress_ms
+                forward_ms = progress+int(skip_s)*1000
+                spotify.playback_start_tracks([song.id], position_ms = forward_ms)
+            elif player_sel == 1:
+                progress = spotify.playback_currently_playing(tracks_only=True).progress_ms
+                rewind_ms = progress - int(skip_s)*1000
+                if rewind_ms < 0:
+                    rewind_ms = 0
+                spotify.playback_start_tracks([song.id], position_ms = rewind_ms)
+            # elif player_sel == 2:
+            #     spotify.playlist_add(playlist_id=playlist_id, uris=[song.uri])  #can not directly add to playlist if it is not yours
+            elif player_sel == (len(player_options)-1):
+                player_exit = True
 
 
 def main():
-    console.print(f"Welcome {str(spotify.current_user().display_name).upper()} to [bold green]SpotiMeuk[/bold green]")
-
-    main_menu_title = " SpotiyMeuk Main Menu\n"
-    main_menu_items = ["Search!", "Settings", "Quit"]
-    main_menu_cursor = "> "
-    main_menu_cursor_style = ("fg_red", "bold")
-    main_menu_style = ("bg_red", "fg_yellow")
+    main_menu_title = "M3UKINATOR MENU\n"
+    main_menu_items = ["Search Artist","Search Songs", "Settings", "Quit"]
     main_menu_exit = False
-
     main_menu = TerminalMenu(
         menu_entries=main_menu_items,
         title=main_menu_title,
-        menu_cursor=main_menu_cursor,
-        menu_cursor_style=main_menu_cursor_style,
-        menu_highlight_style=main_menu_style,
-        cycle_cursor=True,
-        clear_screen=True,
-    )
-
-    search_menu_title = "  Search MEUK! based on:"
-    search_menu_items = ["Artist" , "Album", "Song", "Back to Main Menu"]
-    search_menu_back = False
-    search_menu = TerminalMenu(
-        search_menu_items,
-        title=search_menu_title,
-        menu_cursor=main_menu_cursor,
-        menu_cursor_style=main_menu_cursor_style,
-        menu_highlight_style=main_menu_style,
         cycle_cursor=True,
         clear_screen=True,
     )
@@ -152,51 +133,36 @@ def main():
     edit_menu = TerminalMenu(
         edit_menu_items,
         title=edit_menu_title,
-        menu_cursor=main_menu_cursor,
-        menu_cursor_style=main_menu_cursor_style,
-        menu_highlight_style=main_menu_style,
         cycle_cursor=True,
         clear_screen=True,
     )
 
     while not main_menu_exit:
         main_sel = main_menu.show()
-        if main_sel == 0:
-            while not search_menu_back:
-                search_sel = search_menu.show()
-                if search_sel == 0:
-                    search_term = input("Search for artist name: ")
-                    artists =  search_artists(search_term)
-                    search_results(artists)
-                    # res_menu.show()
-                elif search_sel == 1:
-                    print("Albums Not Implemented Yet" )
-                    # time.sleep(5)
-                    search_menu_back = True
-                elif search_sel == 2:
-                    print("Songs Not Implemented Yet" )
-                    # time.sleep(5)
-                    search_menu_back = True
-                elif search_sel == 3:
-                    search_menu_back = True
-                    print("Back Selected")
-            search_menu_back = False
-        elif main_sel == 1:
+        if main_sel == 0: #Search based on artist name
+            search_term = input("Search for artist name: ")
+            artists =  search_artists(search_term)
+            search_results(artists)
+
+        elif main_sel == 1: #Search based on song name
+            pass
+
+        elif main_sel == 2: #Settings menu
             while not edit_menu_back:
                 edit_sel = edit_menu.show()
                 if edit_sel == 0:
                     print("Followers")
                     time.sleep(5)
                 elif edit_sel == 1:
-                    print("SGenres" )
+                    print("Genres" )
                     time.sleep(5)
                 elif edit_sel == 2:
                     edit_menu_back = True
                     print("Back Selected")
             edit_menu_back = False
-        elif main_sel == 2:
+        elif main_sel == 3: #Quit
             main_menu_exit = True
-            print("Quit Selected")
+            console.print("Shutting Down M3UKINATOR3", style='bold red')
             sys.exit()
     return
 
@@ -207,4 +173,21 @@ if __name__ == "__main__":
     spotify = tk.Spotify(token)
 
     if spotify:
+        user = spotify.current_user().id
+        found = False
+        n,m = 0,50
+        while not found:
+            playlists = spotify.playlists(user, limit=m, offset=n)
+            for playlist in playlists.items:
+                if playlist.name == desired_playlist:
+                    playlist_id = playlist.id
+                    console.print(f"Found playlist {playlist.name} with ID {playlist.id}", style='bold green')
+                    found = True
+                    time.sleep(1)
+            n += m
+            if n > 500:
+                console.print("Could not find {desired_playlist}! ERROR BLIEP BLEIP", style='bold red')
+                time.sleep(3)
+                playlist_id = None
+                found = True
         main()

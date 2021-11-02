@@ -1,7 +1,4 @@
-from client_info import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, TH_CLIENT_ID, TH_CLIENT_SECRET
-
-CLIENT_ID = TH_CLIENT_ID
-CLIENT_SECRET = TH_CLIENT_SECRET
+from client_info import CLIENT_ID, CLIENT_SECRET, REDIRECT_URI
 
 import tekore as tk
 from rich.console import Console

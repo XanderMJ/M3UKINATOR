@@ -59,9 +59,13 @@ class SearchEngine:
             reduced_artists = [artist for artist in results if artist.followers.total <= follow_filter]
 
             filter_language = str(self.settings.get('song_language'))
-            if filter_language != (None or ''):
+            if filter_language != ('all' or ''):
                 filtered = self._filter_language(reduced_artists, filter_language)
                 return filtered
+            else:
+                for artist in reduced_artists:
+                    artist.language = 'all'
+                return reduced_artists
         else:
             print("Follow filter is not `type(int)`")
             return results

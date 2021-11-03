@@ -77,7 +77,7 @@ class SearchEngine:
                 if detection.language == target_language:
                     # print('Detected:', detection.language)
                     add = True
-                    artist.language = 'nl'
+                    artist.language = detection.language
             if add:
                 r.append(artist)
         return r

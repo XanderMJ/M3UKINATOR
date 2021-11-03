@@ -19,6 +19,7 @@ Browser window prompt, login with spotify account, copy the url the appears on y
 
 ## Usage
 Only 'Artist Search' works in this version, type name and press enter (takes few seconds)
+In setting, language of song title can be set, use `all` if you dont want to filter based on language, otherwise use for example `nl` for dutch.
 
 ## ToDo / Known Issues
 - Add song search

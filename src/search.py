@@ -119,12 +119,15 @@ class SearchEngine:
             args=True
         )
 
+
         if artist_selection != None:
             artist = entities[artist_selection]
-            self.show_artist_top_songs(artist)
+            self.show_artist_top_songs(artist, entities, search_term)
+
+        
  
 
-    def show_artist_top_songs(self,artist):
+    def show_artist_top_songs(self,artist,entities,search_term):
         top_songs = self.client.artist_top_tracks(artist_id=artist.id, market='from_token')
         songs = [song.name for song in top_songs]
         empty = [None]*len(songs)
@@ -139,7 +142,21 @@ class SearchEngine:
             song = top_songs[song_selection]
             # print(song.id)
             self.player(song.id)
-            self.show_artist_top_songs(artist)    
+            self.show_artist_top_songs(artist, entities, search_term)
+        else:
+            #go back to previous search result dit moet anders! nu quick fix
+            # pass    
+            formatted_response = self._result_formatter(entities)
+            empty = [None]*len(formatted_response)
+            artist_selection = CLI().create_menu( 
+                title = f" M3UKINATOR Result {len(entities) }for {search_term}:",
+                entries=dict(zip(formatted_response,empty)),
+                args=True
+            )
+
+            if artist_selection != None:
+                artist = entities[artist_selection]
+                self.show_artist_top_songs(artist, entities, search_term)
         
 
     def player(self, track_id):

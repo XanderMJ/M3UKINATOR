@@ -2,8 +2,6 @@ import configparser
 import os
 import time
 import cld3
-from main import search_artists, search_songs
-
 
 from src.interface import CLI
 

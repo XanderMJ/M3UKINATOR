@@ -5,7 +5,7 @@ class CLI:
     def __init__(self):
         self.exit = False
 
-    def create_menu(self, title, entries, args=False, add_return=True, return_label="<< Return"):
+    def create_menu(self, title, entries, args=False, add_return=True, return_label="<< Return", clear=True):
         if add_return:
             entries[return_label] = None
 
@@ -14,7 +14,7 @@ class CLI:
             menu_entries=items,
             title=title,
             cycle_cursor=True,
-            clear_screen=True
+            clear_screen=clear
         )
         exit = False
         while not exit:

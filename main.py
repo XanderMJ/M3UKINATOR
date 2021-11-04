@@ -2,7 +2,6 @@ from src.search import SearchEngine
 from src.interface import CLI
 from src.login import fetch_token
 
-
 import tekore as tk
 import sys
 

@@ -145,7 +145,7 @@ class SearchEngine:
         if song_selection != None:
             song = top_songs[song_selection]
             # print(song.id)
-            self.player(song.id)
+            self.player(song)
             self.show_artist_top_songs(artist, entities, search_term)
         else:
             #go back to previous search result dit moet anders! nu quick fix
@@ -163,8 +163,24 @@ class SearchEngine:
                 self.show_artist_top_songs(artist, entities, search_term)
         
 
-    def player(self, track_id):
-        self.client.playback_start_tracks([track_id])
+    def player(self, track):
+        adv_player = str(self.settings.get('advanced_player'))
+
+        if adv_player.lower() == 'yes':
+            player_menu = CLI().create_menu(
+                title = "Player Menu",
+                entries={
+                    "Play":None,
+                    "Queue":None
+                    },
+                    args=True   
+            )
+            if player_menu == 0:
+                self.client.playback_start_tracks([track.id])
+            elif player_menu == 1:
+                self.client.playback_queue_add(track.uri)
+        else:
+            self.client.playback_start_tracks([track.id])
 
     ## All definitions related to Song search
 
@@ -173,5 +189,6 @@ class SearchEngine:
         print(f"Improved Song Searching comming SOON, returning in 3seconds")
         time.sleep(3)
         return
+
 
 

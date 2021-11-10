@@ -153,7 +153,7 @@ class SearchEngine:
 
     def show_artist_top_songs(self,artist,entities,search_term):
         top_songs = self.client.artist_top_tracks(artist_id=artist.id, market='from_token')
-        songs = [song.name for song in top_songs]
+        songs = [f"{song.album.release_date[:4]}: {song.name}" for song in top_songs]
         empty = [None]*len(songs)
 
         song_selection = CLI().create_menu(

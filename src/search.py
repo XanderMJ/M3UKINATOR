@@ -185,7 +185,7 @@ class SearchEngine:
     def _format_song_title(self, results, offset=3,m=60):
         n = max([len(a.name) for a in results]) + offset
         if n>m: n=m
-        formatted = [f"{i}) Bpm:{' '*(4-len(str(result.tempo)))}{result.tempo}, Title:{result.name}{' '*(n-len(result.name))},{[a.name for a in result.artists]}" 
+        formatted = [f"{' '*(2-len(str(i)))}{i}) Y:{str(result.album.release_date)[:4]} Bpm:{' '*(3-len(str(result.tempo)))}{result.tempo} Title: {result.name}{' '*(n-len(result.name))},{[(a.name,a.followers) for a in result.artists]}" 
                     for (i,result) in enumerate(results)]
         return formatted
 
@@ -203,14 +203,32 @@ class SearchEngine:
                 song.speechiness = meta.speechiness             # <0.33 no speech 0.33<0.66 speech and music >0.66 only spoken
         return song_list
 
+    def _filter_followers(self, results):
+        follow_filter = int(self.settings.get('followers'))
+        reduced_results = []
+        for song in results:
+            keep = True
+            song_artists = song.artists
+            for i in range(len(song_artists)):
+                artist = self.client.artist(song_artists[i].id)
+                if int(artist.followers.total) > int(follow_filter):
+                    keep = False
+                else:
+                    song.artists[i].followers = artist.followers.total
+            if keep == True:
+                reduced_results.extend([song])
+        return reduced_results
+            
     def search_song(self, search=None,data=None):
         if search is None:
-            result_limit = self.settings.get('result_limit')
-            result_offset = self.settings.get('result_offset')
-            max_search = self.settings.get('max_search_n')
+            result_limit = int(self.settings.get('result_limit'))
+            result_offset = int(self.settings.get('result_offset'))
+            max_search = int(self.settings.get('max_search_n'))
             entities = []
+
             search_term = input("Song Name:")
             if search_term != '':
+
                 while not (len(entities) >= int(result_limit) or int(result_offset)>=int(max_search)):
                     search_results, *_ = self.client.search(
                         query=search_term,
@@ -223,31 +241,36 @@ class SearchEngine:
 
                     if search_results:
                         songs = [result for result in search_results.items]  #reduce data
-                        songs_metadata = self._add_song_metadata(songs)
-                        entities.extend(songs_metadata)
-
+                        songs =  self._filter_followers(songs)
+                        if len(songs) > 0:
+                            songs_metadata = self._add_song_metadata(songs)
+                            entities.extend(songs_metadata)
                     else:
                         break
         else:
             entities = data
             search_term = search
 
-        song_strs = self._format_song_title(entities)
-        empty = [None]*len(entities)
+        if len(entities) > 0:
 
-        items = dict(zip(song_strs, empty))
-        songs_view = CLI().create_menu(
-            title=f"M3UL Songs for {search_term}:",
-            entries=items,
-            args=True,
-        )
+            song_strs = self._format_song_title(entities)
+            empty = [None]*len(entities)
 
-        if songs_view != None:
-            self.player(entities[songs_view])
-            self.search_song(search_term,entities)                
+            items = dict(zip(song_strs, empty))
+            songs_view = CLI().create_menu(
+                title=f"M3UL Songs for {search_term} found {len(song_strs)}:",
+                entries=items,
+                args=True,
+            )
+            if songs_view != None:
+                self.player(entities[songs_view])
+                self.search_song(search_term,entities)
 
+        else:
+            print("No results found, returing in 3sec")
+            time.sleep(3)
 
-
+        
     # Player model, should not be in this class...
 
     def player(self, track):

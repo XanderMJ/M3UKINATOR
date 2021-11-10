@@ -2,6 +2,7 @@ import configparser
 import os
 import time
 import cld3
+import numpy as np
 
 from src.interface import CLI
 
@@ -55,12 +56,13 @@ class SearchEngine:
 
     def _filter_artist(self, results):
         follow_filter = int(self.settings.get('followers'))
+        language_confidance = int(self.settings.get('language_confidance'))/100.0
         if isinstance(follow_filter, int):
             reduced_artists = [artist for artist in results if artist.followers.total <= follow_filter]
 
             filter_language = str(self.settings.get('song_language'))
             if filter_language != ('all' or ''):
-                filtered = self._filter_language(reduced_artists, filter_language)
+                filtered = self._filter_language(reduced_artists, filter_language, language_confidance)
                 return filtered
             else:
                 for artist in reduced_artists:
@@ -70,26 +72,36 @@ class SearchEngine:
             print("Follow filter is not `type(int)`")
             return results
 
-    def _filter_language(self, results, target_language):
+    def _filter_language(self, results, target_language, language_conf=None):
         r = []
+
         for artist in results:
+            lang_confs = []
+            add = False
 
             top_songs = self.client.artist_top_tracks(artist_id=artist.id, market='from_token')
-            add = False
+            
             for song in top_songs:
                 detection = cld3.get_language(song.name)
                 if detection.language == target_language:
-                    # print('Detected:', detection.language)
-                    add = True
+                    if language_conf:
+                        lang_confs.append(float(detection.probability))
+                        add = True
+                    else:
+                        add = True
+                        
                     artist.language = detection.language
+                    
             if add:
+                artist.language = target_language
+                artist.language_prob = str(np.round(np.mean(lang_confs)*100,1))
                 r.append(artist)
         return r
 
     def _result_formatter(self, results, offset=3):
         n = max([len(a.name) for a in results]) + offset
         m = max([len(str(a.followers.total)) for a in results]) +1
-        return [f"{result.language}:{result.name}{' '*(n-len(result.name))} Followers:{' '*(m-len(str(result.followers.total)))}{result.followers.total}" for result in results]
+        return [f"{' '*(5-len(str(result.language_prob)))}{result.language_prob}% {result.language}: {result.name}{' '*(n-len(result.name))} Followers:{' '*(m-len(str(result.followers.total)))}{result.followers.total}" for result in results]
     
 
     def search_artist(self):
@@ -98,7 +110,7 @@ class SearchEngine:
         max_search = int(self.settings.get('max_search_n'))
         entities = []
 
-        if int(result_limit) > 50: #dirty fix for querry overloading
+        if result_limit > 50: #dirty fix for querry overloading
             result_limit = 50
 
         search_term = input("Artist Name:")
@@ -110,25 +122,16 @@ class SearchEngine:
                     market='from_token',
                     limit=result_limit,
                     offset=result_offset
-                    )
-
-                n_items = len(search_results.items)
-                print(n_items, result_offset)
-                time.sleep(1)
-                              
+                )                      
 
                 # Should add a check on 404 response
                 filtered_search_results = self._filter_artist(results=search_results.items)
                 entities.extend(item for item in filtered_search_results)
 
+                n_items = len(search_results.items)   
                 if n_items < int(result_limit):
-                    print(f"Stopped search at {result_offset}/{max_search}")
-                    time.sleep(3)
                     #No full querry result, end search
                     result_offset = max_search +1
-
-            
-                    
                 else:
                     result_offset += result_limit
 
@@ -143,12 +146,9 @@ class SearchEngine:
                 args=True
             )
 
-
             if artist_selection != None:
                 artist = entities[artist_selection]
                 self.show_artist_top_songs(artist, entities, search_term)
-
-        
  
 
     def show_artist_top_songs(self,artist,entities,search_term):
@@ -164,12 +164,10 @@ class SearchEngine:
 
         if song_selection != None:
             song = top_songs[song_selection]
-            # print(song.id)
             self.player(song)
             self.show_artist_top_songs(artist, entities, search_term)
         else:
-            #go back to previous search result dit moet anders! nu quick fix
-            # pass    
+            #go back to previous search result dit moet anders! nu quick fix  
             formatted_response = self._result_formatter(entities)
             empty = [None]*len(formatted_response)
             artist_selection = CLI().create_menu( 

@@ -29,9 +29,7 @@ class CLI:
             else:
                 exit=True
 
-    def menu_selection(self,menu):
 
-        return
 
 
 

@@ -93,14 +93,17 @@ class SearchEngine:
     
 
     def search_artist(self):
-        result_limit = self.settings.get('result_limit')
-        result_offset = self.settings.get('result_offset')
-        max_search = self.settings.get('max_search_n')
+        result_limit = int(self.settings.get('result_limit'))
+        result_offset = int(self.settings.get('result_offset'))
+        max_search = int(self.settings.get('max_search_n'))
         entities = []
+
+        if int(result_limit) > 50: #dirty fix for querry overloading
+            result_limit = 50
 
         search_term = input("Artist Name:")
         if search_term != '':
-            while not (len(entities) > int(result_limit) or int(result_offset)>int(max_search)):
+            while not (len(entities) > int(result_limit) or int(result_offset)>=int(max_search)):
                 search_results, *_ = self.client.search(
                     query=search_term, 
                     types=('artist',),
@@ -109,10 +112,27 @@ class SearchEngine:
                     offset=result_offset
                     )
 
+                n_items = len(search_results.items)
+                print(n_items, result_offset)
+                time.sleep(1)
+                              
+
                 # Should add a check on 404 response
                 filtered_search_results = self._filter_artist(results=search_results.items)
                 entities.extend(item for item in filtered_search_results)
-                result_offset += result_limit
+
+                if n_items < int(result_limit):
+                    print(f"Stopped search at {result_offset}/{max_search}")
+                    time.sleep(3)
+                    #No full querry result, end search
+                    result_offset = max_search +1
+
+            
+                    
+                else:
+                    result_offset += result_limit
+
+                
 
             formatted_response = self._result_formatter(entities)
             empty = [None]*len(formatted_response)
@@ -157,12 +177,11 @@ class SearchEngine:
                 entries=dict(zip(formatted_response,empty)),
                 args=True
             )
-
+            
             if artist_selection != None:
                 artist = entities[artist_selection]
                 self.show_artist_top_songs(artist, entities, search_term)
         
-
 
     ## All definitions related to Song search
     def _format_song_title(self, results, offset=3,m=60):

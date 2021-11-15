@@ -214,6 +214,8 @@ class SearchEngine:
                     keep = False
             if keep == True:
                 reduced_results.extend([song])
+        print(f"follower filter reduced {len(results)} results to {len(reduced_results)}")
+        time.sleep(1)
         return reduced_results
             
     def search_song(self, search=None,data=None):
@@ -227,7 +229,7 @@ class SearchEngine:
 
             if search_term != '':
 
-                while not (len(entities) >= int(result_limit) or int(result_offset)>=int(max_search+50)):
+                while not (int(result_offset)>=int(max_search)):
                     search_results, *_ = self.client.search(
                         query=search_term,
                         types=('track',),

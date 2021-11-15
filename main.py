@@ -1,4 +1,4 @@
-from src.search2 import SearchEngine
+from src.search import SearchEngine
 from src.interface import CLI
 from src.login import fetch_token
 

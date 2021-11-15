@@ -209,27 +209,25 @@ class SearchEngine:
         for song in results:
             keep = True
             song_artists = song.artists
-            for i in range(len(song_artists)):
-                artist = self.client.artist(song_artists[i].id)
-                if int(artist.followers.total) > int(follow_filter):
+            for artist in song_artists:
+                if artist.followers > follow_filter:
                     keep = False
-                else:
-                    song.artists[i].followers = artist.followers.total
             if keep == True:
                 reduced_results.extend([song])
         return reduced_results
             
     def search_song(self, search=None,data=None):
         if search is None:
-            result_limit = int(self.settings.get('result_limit'))
-            result_offset = int(self.settings.get('result_offset'))
-            max_search = int(self.settings.get('max_search_n'))
+            result_limit = int(self.settings.get('result_limit'))   ### amount of songs per request
+            result_offset = int(self.settings.get('result_offset')) ### search offset, default 0
+            max_search = int(self.settings.get('max_search_n'))     ### max data request 
             entities = []
 
             search_term = input("Song Name:")
+
             if search_term != '':
 
-                while not (len(entities) >= int(result_limit) or int(result_offset)>=int(max_search)):
+                while not (len(entities) >= int(result_limit) or int(result_offset)>=int(max_search+50)):
                     search_results, *_ = self.client.search(
                         query=search_term,
                         types=('track',),
@@ -240,21 +238,67 @@ class SearchEngine:
                     result_offset += result_limit
 
                     if search_results:
-                        songs = [result for result in search_results.items]  #reduce data
-                        songs =  self._filter_followers(songs)
-                        if len(songs) > 0:
-                            songs_metadata = self._add_song_metadata(songs)
-                            entities.extend(songs_metadata)
+                        entities.extend([result for result in search_results.items])
                     else:
                         break
+
+                if len(entities) > 0:
+
+                    # Fetch all artists from the songs
+                    chucked_artist_list = []
+                    artist_list = []
+                    for ent in entities:
+                        for artist in ent.artists:
+                            artist_list.append(artist.id)
+                            if len(artist_list) == 50:
+                                chucked_artist_list.append(artist_list)
+                                artist_list=[]
+                    if len(artist_list) > 0:  #add remaining artists
+                        chucked_artist_list.append(artist_list)
+
+                    ## add followers to each artist (bundle artist in large requests insstead of single)
+                    # chunk the follower requests
+                    artists_id, artists_followers = [],[]
+                    for chunck in chucked_artist_list:
+                        d = self.client.artists(chunck)
+                        artists_id.extend([a.id for a in d])
+                        artists_followers.extend([a.followers.total for a in d])
+
+                    for ent in entities:
+                        for artist in ent.artists:
+                            f_id = artists_id.index(artist.id)
+                            artist.followers = artists_followers[f_id]
+                            # print(artist.id, artists_id[f_id], artists_followers[f_id])
+
+                
+                    songs =  self._filter_followers(entities)
+                    print(f"numb songs:{len(songs)}, sleep(1sec)")
+                    
+                    if len(songs) > 50:
+                        print(f"recuding resutls to 50, next update allows for loading next")
+                        songs = songs[:50]
+
+                    time.sleep(1)
+
+                    # This can also be chuncked!
+                    reduced_entities = []
+                    if len(songs) > 0:
+                        songs_metadata = self._add_song_metadata(songs)
+                        reduced_entities.extend(songs_metadata)
+
+
+                    # time.sleep(10)    
+                else:
+                    print("No results found, returing in 3sec")
+                    time.sleep(3)
+
         else:
-            entities = data
+            reduced_entities = data
             search_term = search
 
-        if len(entities) > 0:
-
-            song_strs = self._format_song_title(entities)
-            empty = [None]*len(entities)
+        if len(reduced_entities) > 0:
+            song_strs = self._format_song_title(reduced_entities)
+            empty = [None]*len(reduced_entities)
 
             items = dict(zip(song_strs, empty))
             songs_view = CLI().create_menu(
@@ -263,12 +307,10 @@ class SearchEngine:
                 args=True,
             )
             if songs_view != None:
-                self.player(entities[songs_view])
-                self.search_song(search_term,entities)
+                self.player(reduced_entities[songs_view])
+                self.search_song(search_term,reduced_entities)
 
-        else:
-            print("No results found, returing in 3sec")
-            time.sleep(3)
+
 
         
     # Player model, should not be in this class...

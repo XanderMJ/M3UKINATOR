@@ -53,6 +53,10 @@ class SearchEngine:
 
 
     ## All definitions related to Artist Search
+    def _follow_filter(self, results):
+        follow_filter = int(self.settings.get('followers'))
+        return [artist for artist in results if artist.followers.total <= follow_filter]
+
 
     def _filter_artist(self, results):
         follow_filter = int(self.settings.get('followers'))
@@ -72,14 +76,22 @@ class SearchEngine:
             print("Follow filter is not `type(int)`")
             return results
 
-    def _filter_language(self, results, target_language, language_conf=None):
+    def _filter_language(self, results, target_language, language_conf=None, t=50, time_out=2):
         r = []
 
-        for artist in results:
+        if len(results) > 50:
+            print(f"Processing more than 50 request ({len(results)}), slowing down code to prevent API overflowwing")
+
+        for i,artist in enumerate(results):
+            if (i % t == 0 and i != 0):
+                print(f"Processed {i} results, sleeping for {time_out}s")
+                time.sleep(time_out)
+
             lang_confs = []
             add = False
 
             top_songs = self.client.artist_top_tracks(artist_id=artist.id, market='from_token')
+            
             
             for song in top_songs:
                 detection = cld3.get_language(song.name)
@@ -104,6 +116,85 @@ class SearchEngine:
         return [f"{' '*(5-len(str(result.language_prob)))}{result.language_prob}% {result.language}: {result.name}{' '*(n-len(result.name))} Followers:{' '*(m-len(str(result.followers.total)))}{result.followers.total}" for result in results]
     
 
+    def search_artists(self):
+        result_limit = int(self.settings.get('result_limit'))
+        result_offset = int(self.settings.get('result_offset'))
+        max_search = int(self.settings.get('max_search_n'))
+        filter_language = str(self.settings.get('song_language'))
+        language_confidance = int(self.settings.get('language_confidance'))/100.0
+        entities = []
+
+        if result_limit > 50: #dirty fix for querry overloading
+            result_limit = 50
+
+        search_term = input("Artist Name: ")
+        if search_term != '':
+            while not (int(result_offset)>=int(max_search)):
+                search_results, *_ = self.client.search(
+                    query=search_term, 
+                    types=('artist',),
+                    market='from_token',
+                    limit=result_limit,
+                    offset=result_offset
+                )  
+                result_offset += result_limit
+
+                if search_results:
+                    entities.extend([result for result in search_results.items])
+                    if len(search_results.items) < result_limit:
+                        print(f"Breaking max {len(search_results.items)} matches where found out max out of {max_search} attempts")
+                        time.sleep(1)
+                        break
+                    else:
+                        pass
+                        # print(f"{len(entities)}, {result_offset}, doorgaan")
+                        # time.sleep(1)
+                    
+
+            if len(entities) > 0:
+                print(f"Found {len(entities)} artists! (max from settins = {max_search}")
+
+                reduced_artists = self._follow_filter(entities)
+                print(f"Follower filter reduced {len(entities)} to {len(reduced_artists)} results")
+
+                if filter_language != "all":
+                    reduced_entities = self._filter_language(reduced_artists, filter_language, language_confidance)
+                    print(f"Reduced to {len(reduced_entities)} results based on filtering language {filter_language}")
+                    # print("Waiting 3 sec")
+                    time.sleep(1)
+                else:
+                    reduced_entities = reduced_artists
+                    print("No language filters used")
+
+                artist_str = self._result_formatter(reduced_entities)
+                # artist_str = [f"{a.name}" for a in language_reduced]
+                empty = [None]*len(artist_str)
+
+                artist_selection = CLI().create_menu( 
+                    title = f" M3UKINATOR Result {len(artist_str) }for {search_term}:",
+                    entries=dict(zip(artist_str,empty)),
+                    args=True
+                )
+
+                if artist_selection != None:
+                    artist = reduced_entities[artist_selection]
+                    self.show_artist_top_songs(artist, reduced_entities, search_term)
+
+
+            else:
+                print("No results found for {search_term}, returning in 3 sec")
+                
+                time.sleep(3)
+
+                ## Follower filter
+
+
+                pass
+                
+        return 
+
+
+
     def search_artist(self):
         result_limit = int(self.settings.get('result_limit'))
         result_offset = int(self.settings.get('result_offset'))
@@ -122,7 +213,8 @@ class SearchEngine:
                     market='from_token',
                     limit=result_limit,
                     offset=result_offset
-                )                      
+                )  
+
 
                 # Should add a check on 404 response
                 filtered_search_results = self._filter_artist(results=search_results.items)
@@ -278,7 +370,7 @@ class SearchEngine:
 
                 
                     songs =  self._filter_followers(entities)
-                    print(f"numb songs:{len(songs)}, sleep(1sec)")
+                    # print(f"numb songs:{len(songs)}, sleep(1sec)")
                     
                     if len(songs) > 50:
                         print(f"recuding resutls to 50, next update allows for loading next")

@@ -12,7 +12,7 @@ def main():
     main_menu = CLI().create_menu(
         title="Main Menu M3UKINATOR",
         entries={
-            "Search Artist":search.search_artist,
+            "Search Artist":search.search_artists,
             "Search Song": search.search_song,
             "Settings": search.view_settings
         },

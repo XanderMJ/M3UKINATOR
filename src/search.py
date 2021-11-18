@@ -214,7 +214,7 @@ class SearchEngine:
                     keep = False
             if keep == True:
                 reduced_results.extend([song])
-        print(f"follower filter reduced {len(results)} results to {len(reduced_results)}")
+        print(f"Follower filter reduced {len(results)} results to {len(reduced_results)}")
         time.sleep(1)
         return reduced_results
             
@@ -241,6 +241,10 @@ class SearchEngine:
 
                     if search_results:
                         entities.extend([result for result in search_results.items])
+                        if len(search_results.items) < result_limit:
+                            print(f"Breaking max {len(search_results.items)} matches where found out max out of {max_search} attempts")
+                            time.sleep(1)
+                            break
                     else:
                         break
 

@@ -378,7 +378,9 @@ class SearchEngine:
                             # print(artist.id, artists_id[f_id], artists_followers[f_id])
 
                 
-                    songs =  self._filter_followers(entities)
+                    followers_reduced =  self._filter_followers(entities)
+                    songs = self._filter_year(followers_reduced)
+                    print(f"Reduced to {len(songs)} using minumum year for song release")
                     # print(f"numb songs:{len(songs)}, sleep(1sec)")
                     
                     if len(songs) > 50:
@@ -390,10 +392,8 @@ class SearchEngine:
                     # This can also be chuncked!
                     reduced_entities = []
                     if len(songs) > 0:
-                        songs_metadata = self._add_song_metadata(songs)
-                        year_reduced = self._filter_year(songs_metadata)
-                        print(f"Reduced to {len(year_reduced)} using minumum year for song release")
-                        tempo_filtered = self._filter_tempo(year_reduced)
+                        songs_metadata = self._add_song_metadata(songs)                       
+                        tempo_filtered = self._filter_tempo(songs_metadata)
                         print(f"Reduced to {len(tempo_filtered)} using minumum bmp treshold")
                         reduced_entities.extend(tempo_filtered)
                         time.sleep(1)

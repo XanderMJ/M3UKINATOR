@@ -76,7 +76,7 @@ class SearchEngine:
             print("Follow filter is not `type(int)`")
             return results
 
-    def _filter_language(self, results, target_language, language_conf=None, t=50, time_out=2):
+    def _filter_language(self, results, target_language, language_conf=None, t=50, time_out=5):
         r = []
 
         if len(results) > 50:
@@ -309,6 +309,11 @@ class SearchEngine:
         print(f"Follower filter reduced {len(results)} results to {len(reduced_results)}")
         time.sleep(1)
         return reduced_results
+
+    def _filter_year(self, results):
+        min_year = int(self.settings.get('from_year'))
+        year_reduced = [s for s in results if int(s.album.release_date[:4]) >= min_year]
+        return year_reduced
             
     def search_song(self, search=None,data=None):
         if search is None:
@@ -382,7 +387,8 @@ class SearchEngine:
                     reduced_entities = []
                     if len(songs) > 0:
                         songs_metadata = self._add_song_metadata(songs)
-                        reduced_entities.extend(songs_metadata)
+                        year_reduced = self._filter_year(songs_metadata)
+                        reduced_entities.extend(year_reduced)
 
 
                     # time.sleep(10)    

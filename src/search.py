@@ -314,6 +314,10 @@ class SearchEngine:
         min_year = int(self.settings.get('from_year'))
         year_reduced = [s for s in results if int(s.album.release_date[:4]) >= min_year]
         return year_reduced
+
+    def _filter_tempo(self, results):
+        min_tempo = int(self.settings.get('tempo'))
+        return [s for s in results if int(s.tempo) >= min_tempo]
             
     def search_song(self, search=None,data=None):
         if search is None:
@@ -388,10 +392,12 @@ class SearchEngine:
                     if len(songs) > 0:
                         songs_metadata = self._add_song_metadata(songs)
                         year_reduced = self._filter_year(songs_metadata)
-                        reduced_entities.extend(year_reduced)
+                        print(f"Reduced to {len(year_reduced)} using minumum year for song release")
+                        tempo_filtered = self._filter_tempo(year_reduced)
+                        print(f"Reduced to {len(tempo_filtered)} using minumum bmp treshold")
+                        reduced_entities.extend(tempo_filtered)
+                        time.sleep(1)
 
-
-                    # time.sleep(10)    
                 else:
                     print("No results found, returing in 3sec")
                     time.sleep(3)

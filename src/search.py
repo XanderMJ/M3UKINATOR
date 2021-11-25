@@ -193,9 +193,16 @@ class SearchEngine:
                 
         return 
 
+    def search_dutch(self):
+        from faker import Faker
+        fake = Faker('nl_NL')
+        random_name = str(fake.name().split(" ")[0])
+        # print(time.sleep(3))
+        self.search_artist(querry=random_name)
+        return
 
 
-    def search_artist(self):
+    def search_artist(self, querry=None):
         result_limit = int(self.settings.get('result_limit'))
         result_offset = int(self.settings.get('result_offset'))
         max_search = int(self.settings.get('max_search_n'))
@@ -204,7 +211,11 @@ class SearchEngine:
         if result_limit > 50: #dirty fix for querry overloading
             result_limit = 50
 
-        search_term = input("Artist Name:")
+        if querry == None:
+            search_term = input("Artist Name:")
+        else:
+            search_term = querry
+
         if search_term != '':
             while not (len(entities) > int(result_limit) or int(result_offset)>=int(max_search)):
                 search_results, *_ = self.client.search(

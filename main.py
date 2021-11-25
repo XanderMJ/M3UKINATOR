@@ -13,6 +13,7 @@ def main():
         title="Main Menu M3UKINATOR",
         entries={
             "Search Artist":search.search_artists,
+            "Random Dutch Artist": search.search_dutch,
             "Search Song": search.search_song,
             "Settings": search.view_settings
         },

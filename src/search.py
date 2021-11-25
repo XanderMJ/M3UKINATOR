@@ -281,19 +281,31 @@ class SearchEngine:
                     for (i,result) in enumerate(results)]
         return formatted
 
+    def _chunck_list(self, list, m=50):
+        n = np.int(len(list)/m) + 1
+        return [list[i*m:(i+1)*m] for i in range(n)]
+
     def _add_song_metadata(self, song_list):
-        song_id = [song.id for song in song_list]
-        metadata = self.client.tracks_audio_features(song_id)
-        for song,meta in zip(song_list, metadata):
-            if meta is None:
-                song.tempo, song.danceability, song.energy, song.instrumentalness, song.speechiness = None,None,None,None,None
-            else:
-                song.tempo = int(meta.tempo)                    #bmp
-                song.danceability = meta.danceability           #dancing 0=bad 1=good
-                song.energy = meta.energy                       #loudness, noise
-                song.instrumentalness = meta.instrumentalness   # 0=no vocals
-                song.speechiness = meta.speechiness             # <0.33 no speech 0.33<0.66 speech and music >0.66 only spoken
-        return song_list
+        song_meta = []
+        chuncked_songs = self._chunck_list(song_list)
+
+        for chunck in chuncked_songs:
+            song_id = [song.id for song in chunck]
+            metadata = self.client.tracks_audio_features(song_id)
+
+            for song,meta in zip(song_list, metadata):
+                if meta is None:
+                    song.tempo, song.danceability, song.energy, song.instrumentalness, song.speechiness = None,None,None,None,None
+                else:
+                    song.tempo = int(meta.tempo)                    #bmp
+                    song.danceability = meta.danceability           #dancing 0=bad 1=good
+                    song.energy = meta.energy                       #loudness, noise
+                    song.instrumentalness = meta.instrumentalness   # 0=no vocals
+                    song.speechiness = meta.speechiness             # <0.33 no speech 0.33<0.66 speech and music >0.66 only spoken
+                
+                song_meta.extend([song])
+                
+        return song_meta
 
     def _filter_followers(self, results):
         follow_filter = int(self.settings.get('followers'))
@@ -343,7 +355,7 @@ class SearchEngine:
                     if search_results:
                         entities.extend([result for result in search_results.items])
                         if len(search_results.items) < result_limit:
-                            print(f"Breaking max {len(search_results.items)} matches where found out max out of {max_search} attempts")
+                            print(f"Breaking max {len(search_results.items)+result_offset-result_limit} matches where found out max out of {max_search} attempts")
                             time.sleep(1)
                             break
                     else:
@@ -381,18 +393,14 @@ class SearchEngine:
                     followers_reduced =  self._filter_followers(entities)
                     songs = self._filter_year(followers_reduced)
                     print(f"Reduced to {len(songs)} using minumum year for song release")
-                    # print(f"numb songs:{len(songs)}, sleep(1sec)")
-                    
-                    if len(songs) > 50:
-                        print(f"recuding resutls to 50, next update allows for loading next")
-                        songs = songs[:50]
-
-                    time.sleep(1)
-
-                    # This can also be chuncked!
+  
                     reduced_entities = []
+
                     if len(songs) > 0:
-                        songs_metadata = self._add_song_metadata(songs)                       
+                        print(f"adding meta data to {len(songs)} songs")
+                        time.sleep(2)
+                        songs_metadata = self._add_song_metadata(songs)   
+                                         
                         tempo_filtered = self._filter_tempo(songs_metadata)
                         print(f"Reduced to {len(tempo_filtered)} using minumum bmp treshold")
                         reduced_entities.extend(tempo_filtered)
@@ -419,7 +427,6 @@ class SearchEngine:
             if songs_view != None:
                 self.player(reduced_entities[songs_view])
                 self.search_song(search_term,reduced_entities)
-
 
 
         

@@ -122,7 +122,7 @@ class SearchEngine:
         return [f"{' '*(5-len(str(result.language_prob)))}{result.language_prob}% {result.language}: {result.name}{' '*(n-len(result.name))} Followers:{' '*(m-len(str(result.followers.total)))}{result.followers.total}" for result in results]
     
 
-    def search_artists(self):
+    def search_artists(self, querry=None):
         result_limit = int(self.settings.get('result_limit'))
         result_offset = int(self.settings.get('result_offset'))
         max_search = int(self.settings.get('max_search_n'))
@@ -130,10 +130,15 @@ class SearchEngine:
         language_confidance = int(self.settings.get('language_confidance'))/100.0
         entities = []
 
+        if querry == None:
+            search_term = input("Artist Name:")
+        else:
+            search_term = querry
+
         if result_limit > 50: #dirty fix for querry overloading
             result_limit = 50
 
-        search_term = input("Artist Name: ")
+        # search_term = input("Artist Name: ")
         if search_term != '':
             while not (int(result_offset)>=int(max_search)):
                 search_results, *_ = self.client.search(
@@ -204,61 +209,9 @@ class SearchEngine:
         fake = Faker('nl_NL')
         random_name = str(fake.name().split(" ")[0])
         # print(time.sleep(3))
-        self.search_artist(querry=random_name)
+        self.search_artists(querry=random_name)
         return
 
-
-    def search_artist(self, querry=None):
-        result_limit = int(self.settings.get('result_limit'))
-        result_offset = int(self.settings.get('result_offset'))
-        max_search = int(self.settings.get('max_search_n'))
-        entities = []
-
-        if result_limit > 50: #dirty fix for querry overloading
-            result_limit = 50
-
-        if querry == None:
-            search_term = input("Artist Name:")
-        else:
-            search_term = querry
-
-        if search_term != '':
-            while not (len(entities) > int(result_limit) or int(result_offset)>=int(max_search)):
-                search_results, *_ = self.client.search(
-                    query=search_term, 
-                    types=('artist',),
-                    market='from_token',
-                    limit=result_limit,
-                    offset=result_offset
-                )  
-
-
-                # Should add a check on 404 response
-                filtered_search_results = self._filter_artist(results=search_results.items)
-                entities.extend(item for item in filtered_search_results)
-
-                n_items = len(search_results.items)   
-                if n_items < int(result_limit):
-                    #No full querry result, end search
-                    result_offset = max_search +1
-                else:
-                    result_offset += result_limit
-
-                
-
-            formatted_response = self._result_formatter(entities)
-            empty = [None]*len(formatted_response)
-
-            artist_selection = CLI().create_menu( 
-                title = f" M3UKINATOR Result {len(entities) }for {search_term}:",
-                entries=dict(zip(formatted_response,empty)),
-                args=True
-            )
-
-            if artist_selection != None:
-                artist = entities[artist_selection]
-                self.show_artist_top_songs(artist, entities, search_term)
- 
 
     def show_artist_top_songs(self,artist,entities,search_term):
         top_songs = self.client.artist_top_tracks(artist_id=artist.id, market='from_token')

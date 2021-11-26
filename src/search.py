@@ -3,6 +3,7 @@ import os
 import time
 import cld3
 import numpy as np
+from faker import Faker
 
 from src.interface import CLI
 
@@ -200,8 +201,13 @@ class SearchEngine:
 
 
     def search_dutch(self):
-        from faker import Faker
-        fake = Faker('nl_NL')
+
+        lang = str(self.settings.get('song_language'))
+        if lang == 'all':
+            fake = Faker()
+        else:
+            f = f"{lang}_{lang.upper()}"
+            fake = Faker(f)
         random_name = str(fake.name().split(" ")[0])
         self.search_artists(querry=random_name)
         return

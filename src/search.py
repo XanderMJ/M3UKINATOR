@@ -105,9 +105,15 @@ class SearchEngine:
                     artist.language = detection.language
                     
             if add:
-                artist.language = target_language
-                artist.language_prob = str(np.round(np.mean(lang_confs)*100,1))
-                r.append(artist)
+                avarage_lang = np.round(np.mean(lang_confs)*100,1)
+
+                if avarage_lang >= float(language_conf*100):
+                    artist.language = target_language
+                    artist.language_prob = str(avarage_lang)
+                    
+                    r.append(artist)
+                else:
+                    pass
         return r
 
     def _result_formatter(self, results, offset=3):

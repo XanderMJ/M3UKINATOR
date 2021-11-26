@@ -138,7 +138,7 @@ class SearchEngine:
         if result_limit > 50: #dirty fix for querry overloading
             result_limit = 50
 
-        # search_term = input("Artist Name: ")
+
         if search_term != '':
             while not (int(result_offset)>=int(max_search)):
                 search_results, *_ = self.client.search(
@@ -157,10 +157,7 @@ class SearchEngine:
                         time.sleep(1)
                         break
                     else:
-                        pass
-                        # print(f"{len(entities)}, {result_offset}, doorgaan")
-                        # time.sleep(1)
-                    
+                        pass                   
 
             if len(entities) > 0:
                 print(f"Found {len(entities)} artists! (max from settins = {max_search}")
@@ -171,44 +168,41 @@ class SearchEngine:
                 if filter_language != "all":
                     reduced_entities = self._filter_language(reduced_artists, filter_language, language_confidance)
                     print(f"Reduced to {len(reduced_entities)} results based on filtering language {filter_language}")
-                    # print("Waiting 3 sec")
                     time.sleep(1)
                 else:
                     reduced_entities = reduced_artists
                     print("No language filters used")
 
-                artist_str = self._result_formatter(reduced_entities)
-                # artist_str = [f"{a.name}" for a in language_reduced]
-                empty = [None]*len(artist_str)
+                
+                if len(reduced_entities) > 0:
+                    artist_str = self._result_formatter(reduced_entities)
+                    empty = [None]*len(artist_str)
 
-                artist_selection = CLI().create_menu( 
-                    title = f" M3UKINATOR Result {len(artist_str) }for {search_term}:",
-                    entries=dict(zip(artist_str,empty)),
-                    args=True
-                )
+                    artist_selection = CLI().create_menu( 
+                        title = f" M3UKINATOR Result {len(artist_str) }for {search_term}:",
+                        entries=dict(zip(artist_str,empty)),
+                        args=True
+                    )
 
-                if artist_selection != None:
-                    artist = reduced_entities[artist_selection]
-                    self.show_artist_top_songs(artist, reduced_entities, search_term)
-
+                    if artist_selection != None:
+                        artist = reduced_entities[artist_selection]
+                        self.show_artist_top_songs(artist, reduced_entities, search_term)
+                    
+                else:
+                    print(f"No matches found after filtering! Returning in 3 sec")
+                    time.sleep(3)
 
             else:
                 print("No results found for {search_term}, returning in 3 sec")
-                
                 time.sleep(3)
 
-                ## Follower filter
-
-
-                pass
-                
         return 
+
 
     def search_dutch(self):
         from faker import Faker
         fake = Faker('nl_NL')
         random_name = str(fake.name().split(" ")[0])
-        # print(time.sleep(3))
         self.search_artists(querry=random_name)
         return
 
